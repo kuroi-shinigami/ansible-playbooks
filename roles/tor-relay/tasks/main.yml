@@ -1,0 +1,86 @@
+---
+- name: "Upgrading all packages"
+  apt: update_cache=yes upgrade=dist force=yes
+  when: ansible_pkg_mgr == 'apt'
+
+#                                                                                     Step One: Download and Install Tor
+
+# https://www.torproject.org/docs/tor-relay-debian.html.en
+# >If you're on Debian, start with "apt install tor".
+# Okay.jpg
+- name: "Installing tor package"
+  apt: name={{item}} state=installed update_cache=no
+  with_items:
+    - tor
+  when: ansible_distribution == 'Debian'
+
+# https://www.torproject.org/docs/debian.html.en#ubuntu
+# It's all about ubuntu
+# ToDo: divide this parts for different distros
+- name: "Installing necessary packages"
+  apt: name={{item}} state=installed update_cache=no
+  with_items:
+    - python-apt
+  when: ansible_distribution == 'Ubuntu'
+
+- name: "Adding necessary packages"
+- apt_repository:
+    repo: deb http://deb.torproject.org/torproject.org {{ansible_distribution|lower}} main
+    state: present
+    filename: 'tor'
+  when: ansible_distribution == 'Ubuntu'
+
+- name: "Adding necessary packages"
+- apt_repository:
+    repo: deb-src http://deb.torproject.org/torproject.org {{ansible_distribution|lower}} main
+    state: present
+    filename: 'tor'
+  when: ansible_distribution == 'Ubuntu'
+
+- name: "Adding tor repo gpg key"
+  apt_key:
+    keyserver: keys.gnupg.net
+    id: A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89
+  when: ansible_distribution == 'Ubuntu'
+
+- name: "Updating package index"
+  apt:
+    update_cache: yes
+  when: ansible_distribution == 'Ubuntu'
+
+- name: "Installing tor package"
+  apt: name={{item}} state=installed update_cache=no
+  with_items:
+    - tor
+    - deb.torproject.org-keyring
+  when: ansible_distribution == 'Ubuntu'
+
+#                                                                                         Step Two: Set it up as a relay
+
+# https://www.torproject.org/docs/tor-doc-relay.html.en#torrc
+#    ORPort 443
+#    Exitpolicy reject *:*
+#    Nickname ididntedittheconfig
+#    ContactInfo human@...
+# ToDo: check if ORPort is available and set Exitpolicy reject *:* as default, but configurable
+- name: "Editing /etc/tor/torrc file"
+  lineinfile:
+    dest: "/etc/tor/torrc"
+    line: "{{item}}"
+  with_items:
+    - "ORPort 443"
+    - "Exitpolicy reject *:*"
+    - "Nickname {{nickname}}"
+    - "ContactInfo {{email_address}}"
+
+- name: "Starting Tor Service"
+  service:
+    name: 'tor'
+    state: restarted
+
+#                                                                              ToDo: Step Three: Make sure it is working
+# It seems that there is no log in /var/log/ or /usr/local/var/log/tor/ for now, it is in /var/log/messages instead
+# <...>
+# register: log_content
+# <...>
+# when: log_content.stdout.find('Self-testing indicates your ORPort is reachable from the outside. Excellent.') != -1
