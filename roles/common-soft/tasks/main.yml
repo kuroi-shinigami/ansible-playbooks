@@ -1,0 +1,46 @@
+---
+- name: "Installing commonly-used packages..."
+  apt: name={{item}} state=installed
+  with_items:
+    - mc
+    - vim
+    - htop
+    - ncdu
+    - net-tools
+    - nmap
+    - iotop
+    - sysstat
+  when: ansible_pkg_mgr == 'apt'
+
+- name: "Installing 'epel-release' package"
+  yum: pkg={{item}} state=installed
+  with_items:
+    - epel-release
+  when: ansible_pkg_mgr == 'yum'
+
+- name: "Stopping & disabling firewalld"
+  systemd:
+    name: firewalld
+    state: stopped
+    enabled: no
+  when: ansible_pkg_mgr == 'yum'
+
+- name: "Install 'basic' packages..."
+  yum: pkg={{item}} state=installed
+  with_items:
+    - mc
+    - vim
+    - htop
+    - ncdu
+    - nmap
+    - iotop
+    - sysstat
+    - iptables-services
+  when: ansible_pkg_mgr == 'yum'
+
+- name: "Starting & enabling iptables"
+  systemd:
+    name: iptables
+    state: started
+    enabled: yes
+  when: ansible_pkg_mgr == 'yum'
